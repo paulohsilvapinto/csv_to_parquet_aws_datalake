@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Data Lake Foundation
+
+# Define Parameters
+Parameters:
+  S3RawBucketName:
+    Type: String
+    Description: Name of the raw Bucket on S3
+  
+  S3AnalyticsBucketName:
+    Type: String
+    Description: Name of the analytics Bucket on S3
+
+
+# Define AWS Resources
+Resources:
+
+  # Define Buckets
+  S3RawBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      BucketName: !Ref S3RawBucketName
+      VersioningConfiguration: 
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  S3AnalyticsBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      BucketName: !Ref S3AnalyticsBucketName
+      VersioningConfiguration: 
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # Define Glue Database
+  GlueAnalyticsDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Description: Data Lake - Glue analytics database
+        Name: analytics_db
+  
+  # Define Lambda Functions
+  CsvToParquetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambdas/csv_to_parquet/
+      Handler: main.handler
+      Runtime: python3.6
+      Timeout: 180
+      MemorySize: 512
+      Role: !GetAtt CsvToParquetRole.Arn
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          TARGET_S3_BUCKET: !Ref S3AnalyticsBucketName
+          TARGET_GLUE_DATABASE: !Ref GlueAnalyticsDatabase
+
+
+  S3RawBucketEventNotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambdas/s3_raw_bucket_event_notification/
+      Handler: main.handler
+      Runtime: python3.6
+      Timeout: 60
+      MemorySize: 128
+      Role: !GetAtt BucketNotificationRole.Arn
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+
+  # Define Lambda Invoke Permission
+  RawCsvToParquetInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CsvToParquetFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:aws:s3:::${S3RawBucketName}
+  
+  # Define roles
+  CsvToParquetRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketNotification
+                Resource: !Sub arn:aws:s3:::${S3RawBucket}
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - glue:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject*
+                Resource:
+                  - !Sub arn:aws:s3:::${S3RawBucketName}/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${S3RawBucketName}
+              - Effect: Allow
+                Action:
+                  - s3:GetObject*
+                  - s3:PutObject*
+                  - s3:DeleteObject*
+                Resource:
+                  - !Sub arn:aws:s3:::${S3AnalyticsBucketName}/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${S3AnalyticsBucketName}
+
+
+  BucketNotificationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketNotification
+                  - s3:PutBucketNotification
+                Resource: !Sub arn:aws:s3:::${S3RawBucketName}
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+
+  # Define Lambda Trigger
+  RawCsvToParquetLambdaTrigger:
+    Type: Custom::LambdaTrigger
+    DependsOn: RawCsvToParquetInvokePermission
+    Properties:
+      ServiceToken: !GetAtt S3RawBucketEventNotificationFunction.Arn
+      LambdaArn: !GetAtt CsvToParquetFunction.Arn
+      Bucket: !Ref S3RawBucketName
