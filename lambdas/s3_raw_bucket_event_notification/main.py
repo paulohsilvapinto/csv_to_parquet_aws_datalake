@@ -1,3 +1,7 @@
+'''
+    About: Lambda used to configure S3 Event Notifications on S3 Raw Bucket.
+'''
+
 import json
 import boto3
 import cfnresponse
@@ -8,6 +12,7 @@ LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 s3 = boto3.resource('s3')
 
 
+# main function
 def handler(event, context):
     setup_logging()
     logging.info(f'Received event: {json.dumps(event, indent=2)}')
@@ -47,6 +52,7 @@ def setup_logging():
         level=LOG_LEVEL)
 
 
+# creates s3 event notifications on s3 raw bucket
 def add_notification(LambdaArn, Bucket):
     bucket_notification = s3.BucketNotification(Bucket)
     bucket_notification.put(
@@ -70,6 +76,7 @@ def add_notification(LambdaArn, Bucket):
     logging.info('Put event notification request completed.')
 
 
+# deletes s3 event notifications from s3 raw bucket
 def delete_notification(Bucket):
     bucket_notification = s3.BucketNotification(Bucket)
     bucket_notification.put(NotificationConfiguration={})
