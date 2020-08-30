@@ -2,10 +2,3 @@
     "partition-cols": "ObservationDate",
     "custom-cast": "{\"ObservationDate\":\"date\", \"WindDirection\":\"int\", \"WindSpeed\":\"int\", \"WindGust\":\"int\", \"Visibility\":\"int\", \"Pressure\":\"int\", \"SignificantWeatherCode\":\"int\"}"
 }
-
-
-
-
-
-
-
