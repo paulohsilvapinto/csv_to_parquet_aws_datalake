@@ -6,11 +6,15 @@ Description: Data Lake Foundation
 Parameters:
   S3RawBucketName:
     Type: String
-    Description: Name of the raw Bucket on S3
+    Description: Name of the raw bucket on S3
   
   S3AnalyticsBucketName:
     Type: String
-    Description: Name of the analytics Bucket on S3
+    Description: Name of the analytics bucket on S3
+  
+  S3ArtifactsBucketName:
+    Type: String
+    Description: Name of the artifacts bucket on S3
 
 
 # Define AWS Resources
@@ -57,6 +61,20 @@ Resources:
       DatabaseInput:
         Description: Data Lake - Glue analytics database
         Name: analytics_db
+
+
+  # Define Lambda Layers
+  WranglerLambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+        - python3.6
+      Content:
+        S3Bucket: !Ref S3ArtifactsBucketName
+        S3Key: lambda_layers/awswrangler-layer-1.6.0-py3.6.zip
+      Description: AWS Data Wrangler 1.6.0
+      LayerName: aws-data-wrangler
+      LicenseInfo: Apache 2.0
   
   # Define Lambda Functions
   CsvToParquetFunction:
@@ -65,6 +83,8 @@ Resources:
       CodeUri: ../lambdas/csv_to_parquet/
       Handler: main.handler
       Runtime: python3.6
+      Layers:
+        - !Ref WranglerLambdaLayer
       Timeout: 180
       MemorySize: 512
       Role: !GetAtt CsvToParquetRole.Arn
@@ -73,6 +93,7 @@ Resources:
           LOG_LEVEL: INFO
           TARGET_S3_BUCKET: !Ref S3AnalyticsBucketName
           TARGET_GLUE_DATABASE: !Ref GlueAnalyticsDatabase
+          ENV: cloud
 
 
   S3RawBucketEventNotificationFunction:

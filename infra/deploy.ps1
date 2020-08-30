@@ -8,21 +8,24 @@ Param
 $ErrorActionPreference = "Stop"
 
 Set-Location $(Split-Path $MyInvocation.MyCommand.Path)
-Write-Output "#--- Initiating CloudFormation Deployment ---#"
+Write-Output "`n`n#--- Initiating CloudFormation Deployment ---#"
 
 Remove-Item -recurse -ErrorAction Ignore .aws-sam
-Write-Output "Reformatting Python code."
-yapf --in-place --recursive ../lambdas
+Write-Output "`nReformatting Python code."
+yapf --in-place --recursive ../lambdas lambda_layers/upload_lambda_layers.py
 Write-Output "Checking python code."
-flake8 ../lambdas
+flake8 ../lambdas lambda_layers/upload_lambda_layers.py
 
 $properties = ConvertFrom-StringData (Get-Content ./$environment.properties -Raw)
 $artifactsBucket = $properties.'S3ArtifactsBucketName'
 
-Write-Output "Verifying if bucket $artifactsBucket exists."
+Write-Output "`nVerifying if bucket $artifactsBucket exists."
 aws s3 mb s3://$artifactsBucket
 
-Write-Output "Deploying CloudFormation Template"
+Write-Output "`nVerifying Lambda layers:"
+python lambda_layers/upload_lambda_layers.py $artifactsBucket
+
+Write-Output "`nBuilding CloudFormation Template"
 sam build
 
 sam deploy `
