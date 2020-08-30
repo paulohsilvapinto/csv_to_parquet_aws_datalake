@@ -17,38 +17,43 @@ import awswrangler as wr
 
 # gets environment variables
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+EXECUTION_MODE = os.getenv('EXECUTION_MODE',
+                           'local')  # accepted values: cloud or local
+
 TARGET_S3_BUCKET = os.getenv('TARGET_S3_BUCKET')
 TARGET_GLUE_DATABASE = os.getenv('TARGET_GLUE_DATABASE')
-ENVIRONMENT = os.getenv('ENV', 'local')  # accepted values: cloud or local
+SNS_TOPIC_NAME = os.getenv('SNS_TOPIC_NAME')
 
+SNS_TOPIC_ARN = ''
 LOCAL_CSV_FILE_PATH = 'test-data\\weather\\weather.20160201.csv'
 
 
 # main function
 def handler(event, context):
     setup_logging()
+    build_sns_topic_arn(context)
     s3_objects = parse_event(event)
 
     for s3_object in s3_objects:
         source_file_path = get_source_file_path(s3_object)
         logging.info(f'#--- Starting processing file {source_file_path}. ---#')
         s3_object_meta = get_s3_object_metadata(s3_object)
-        partition_cols = get_partition_cols(s3_object_path=source_file_path,
+        partition_cols = get_partition_cols(source_file_path=source_file_path,
                                             s3_object_meta=s3_object_meta)
 
         df = read_csv(source_file_path=source_file_path, event=event)
         if not df.empty:
             df = cast_df_columns(dataframe=df,
-                                 s3_object_path=source_file_path,
+                                 source_file_path=source_file_path,
                                  s3_object_meta=s3_object_meta)
-            df = add_etl_metadata_to_df(df, s3_object_path=source_file_path)
+            df = add_etl_metadata_to_df(df, source_file_path=source_file_path)
             df = normalize_column_name(df)
             df = replace_nan_values(df)
             save_as_parquet(dataframe=df,
                             s3_object=s3_object,
                             partition_cols=partition_cols,
                             event=event)
-
+            publish_success_to_sns(s3_object)
             logging.info(
                 f'#--- Finished loading file {source_file_path}. ---#')
         else:
@@ -68,14 +73,14 @@ def setup_logging():
         level=LOG_LEVEL)
 
 
-def _is_cloud_environment():
-    if ENVIRONMENT == 'cloud':
+def _is_cloud_execution_mode():
+    if EXECUTION_MODE == 'cloud':
         return True
     return False
 
 
-def _is_local_environment():
-    if ENVIRONMENT == 'local':
+def _is_local_execution_mode():
+    if EXECUTION_MODE == 'local':
         return True
     return False
 
@@ -101,15 +106,15 @@ def parse_event(event):
 
 
 def get_source_file_path(s3_object):
-    if _is_cloud_environment():
+    if _is_cloud_execution_mode():
         return s3_object['object_path']
-    elif _is_local_environment():
+    elif _is_local_execution_mode():
         return LOCAL_CSV_FILE_PATH
 
 
 # gets custom metadata of a single s3 object from s3
 def get_s3_object_metadata(s3_object):
-    if _is_cloud_environment():
+    if _is_cloud_execution_mode():
         logging.info('Retrieving object metadata.')
         s3 = boto3.client('s3')
         response = s3.head_object(Bucket=s3_object['object_bucket'],
@@ -121,8 +126,8 @@ def get_s3_object_metadata(s3_object):
 
 
 # parses s3 object metadata to identify if table must be partitioned
-def get_partition_cols(s3_object_path, s3_object_meta):
-    if _is_cloud_environment():
+def get_partition_cols(source_file_path, s3_object_meta):
+    if _is_cloud_execution_mode():
         logging.info('Identifying partition columns.')
         partition_cols = s3_object_meta.get('partition-cols')
 
@@ -141,10 +146,13 @@ def get_partition_cols(s3_object_path, s3_object_meta):
                 partition_cols = [_normalize_name(partition_cols)]
             else:
                 logging.error(
-                    f'Invalid partition-cols metadata for object {s3_object_path}.'
+                    f'Invalid partition-cols metadata for object {source_file_path}.'
                 )
+                publish_error_to_sns(
+                    source_file_path,
+                    '\n\nError:\nInvalid partition-cols metadata.')
                 raise ValueError(
-                    f'Invalid partition-cols metadata for object {s3_object_path}. Please specify either a list or a string.'
+                    f'Invalid partition-cols metadata for object {source_file_path}. Please specify either a list or a string.'
                 )
 
         logging.info('Partition Columns: {}'.format(partition_cols))
@@ -153,9 +161,9 @@ def get_partition_cols(s3_object_path, s3_object_meta):
 
 # reads csv file from s3 or from local computer
 def read_csv(source_file_path, event):
-    if _is_cloud_environment():
+    if _is_cloud_execution_mode():
         return _read_csv_cloud(source_file_path)
-    elif _is_local_environment():
+    elif _is_local_execution_mode():
         return _read_csv_local(event)
 
 
@@ -164,8 +172,8 @@ def _read_csv_cloud(s3_source_path):
     try:
         df = pd.read_csv(s3_source_path)
     except Exception as err:
-        logging.error(
-            f'Failed to read csv {s3_source_path} on S3. Trace: {err}')
+        logging.error(f'Failed to read csv {s3_source_path} on S3.')
+        publish_error_to_sns(s3_source_path, f'\n\nError:\n{err}')
         raise err
 
     return df
@@ -181,16 +189,15 @@ def _read_csv_local(event):
         for column in event.get('parse_dates', list()):
             df[column] = df[column].dt.date
     except Exception as err:
-        logging.error(
-            f'Failed to read csv {LOCAL_CSV_FILE_PATH}. Trace: {err}')
+        logging.error(f'Failed to read csv {LOCAL_CSV_FILE_PATH}.')
         raise err
 
     return df
 
 
 # parses s3 object metadata to identify if columns must be casted and then apply cast.
-def cast_df_columns(dataframe, s3_object_path, s3_object_meta):
-    if _is_cloud_environment():
+def cast_df_columns(dataframe, source_file_path, s3_object_meta):
+    if _is_cloud_execution_mode():
         logging.info('Casting dataframe columns.')
         cast_schema = s3_object_meta.get('custom-cast')
         if cast_schema:
@@ -198,9 +205,12 @@ def cast_df_columns(dataframe, s3_object_path, s3_object_meta):
                 cast_schema = literal_eval(cast_schema)
             except Exception:
                 logging.error(
-                    f'Invalid custom-cast format for object {s3_object_path}.')
+                    f'Invalid custom-cast format for object {source_file_path}.'
+                )
+                publish_error_to_sns(source_file_path,
+                                     '\n\nError:\nInvalid custom-cast format')
                 raise ValueError(
-                    f'Invalid custom-cast value for object {s3_object_path}. Dict-like string is expected.'
+                    f'Invalid custom-cast value for object {source_file_path}. Dict-like string is expected.'
                 )
 
             for column_name, data_type in cast_schema.items():
@@ -224,6 +234,10 @@ def cast_df_columns(dataframe, s3_object_path, s3_object_meta):
                         logging.error(
                             f'Invalid data type {data_type} for column {column_name}.'
                         )
+                        publish_error_to_sns(
+                            source_file_path,
+                            f'\n\nError:\nInvalid data type {data_type} for column {column_name}.'
+                        )
                         raise ValueError(
                             f'Unable to cast column {column_name}. Expected either int, float, date, datetime or string and received {data_type}.'
                         )
@@ -232,17 +246,20 @@ def cast_df_columns(dataframe, s3_object_path, s3_object_meta):
                         f'Skipping cast of column {column_name} to {data_type} as the column does not exists on csv file.'
                     )
                 except Exception as err:
-                    logging.error(err)
+                    logging.error(
+                        f'Could not cast column {column_name} to {data_type}.')
+                    publish_error_to_sns(source_file_path,
+                                         f'\n\nError:\n{err}')
                     raise err
 
     return dataframe
 
 
 # adds metadata regarding the load process to the dataframe.
-def add_etl_metadata_to_df(dataframe, s3_object_path):
+def add_etl_metadata_to_df(dataframe, source_file_path):
     logging.info('Adding ETL metadata.')
     dataframe['dl_creation_date'] = datetime.today().date()
-    dataframe['dl_source_file'] = s3_object_path
+    dataframe['dl_source_file'] = source_file_path
     return dataframe
 
 
@@ -265,7 +282,7 @@ def normalize_column_name(dataframe):
 
 # Removes NaN values
 def replace_nan_values(dataframe):
-    if _is_cloud_environment():
+    if _is_cloud_execution_mode():
         logging.info('Replacing NaN values to None.')
         # excludes numerical columns
         df_objects = dataframe.select_dtypes(include='object')
@@ -274,17 +291,58 @@ def replace_nan_values(dataframe):
     return dataframe
 
 
+def build_sns_topic_arn(context):
+    if _is_cloud_execution_mode():
+        global SNS_TOPIC_ARN
+        lambda_arn_splitted = context.invoked_function_arn.split(":")
+        aws_region = lambda_arn_splitted[3]
+        aws_account_id = lambda_arn_splitted[4]
+        SNS_TOPIC_ARN = f'arn:aws:sns:{aws_region}:{aws_account_id}:{SNS_TOPIC_NAME}'
+
+
+def publish_success_to_sns(s3_object):
+    if _is_cloud_execution_mode():
+        file_path = s3_object['object_path']
+        table_name = s3_object['target_table']
+        file_name = file_path.rsplit(sep='/', maxsplit=1)[1]
+        subject = f'SUCCESS - {file_name} - Csv to parquet succeeded.'
+        message = f'The file {file_path} was loaded successfully into S3 Analytics and is accessible via Athena on table {table_name}.'
+
+        logging.info(f'Publishing success to {SNS_TOPIC_ARN}')
+        _publish_to_sns(SNS_TOPIC_ARN, subject, message)
+
+
+def publish_error_to_sns(file_path, exception_message):
+    if _is_cloud_execution_mode():
+        file_name = file_path.rsplit(sep='/', maxsplit=1)[1]
+        subject = f'ERROR - {file_name} - Csv to parquet failed.'
+        message = f'The file {file_path} could not be loaded into S3 Analytics. Please check the logs for more details.\n\n {exception_message}'
+
+        logging.info(f'Publishing error to {SNS_TOPIC_ARN}')
+        _publish_to_sns(SNS_TOPIC_ARN, subject, message)
+
+
+def _publish_to_sns(topic_arn, subject, message):
+    client = boto3.client('sns')
+    try:
+        client.publish(TopicArn=topic_arn, Message=message, Subject=subject)
+    except Exception as err:
+        logging.error(f'Unable to post to topic {topic_arn}.')
+        raise err
+
+
 def save_as_parquet(dataframe,
                     s3_object,
                     partition_cols,
                     event,
                     compression='snappy'):
-    if _is_cloud_environment():
+    if _is_cloud_execution_mode():
         _save_to_s3_as_parquet(dataframe=dataframe,
                                table_name=s3_object['target_table'],
                                partition_cols=partition_cols,
-                               compression=compression)
-    elif _is_local_environment():
+                               compression=compression,
+                               source_file_path=s3_object['object_path'])
+    elif _is_local_execution_mode():
         _save_to_local_as_parquet(dataframe=dataframe,
                                   output_path=event.get('output_path'),
                                   partition_cols=event.get('partition_cols'),
@@ -292,7 +350,8 @@ def save_as_parquet(dataframe,
 
 
 # saves dataframe to s3, creates glue table if not exists and updates glue table's partitions
-def _save_to_s3_as_parquet(dataframe, table_name, partition_cols, compression):
+def _save_to_s3_as_parquet(dataframe, table_name, partition_cols, compression,
+                           source_file_path):
     logging.info('Saving dataframe to s3.')
     dest_path = f's3://{TARGET_S3_BUCKET}/databases/{TARGET_GLUE_DATABASE}/{table_name}/'
     try:
@@ -305,10 +364,11 @@ def _save_to_s3_as_parquet(dataframe, table_name, partition_cols, compression):
                          database=TARGET_GLUE_DATABASE,
                          table=table_name)
     except Exception as err:
-        logging.error(f'Failed to save to S3 on {dest_path}. Trace: {err}')
+        logging.error(f'Failed to save to S3 on {dest_path}.')
+        publish_error_to_sns(source_file_path, f'\n\nError:\n{err}')
         raise err
     logging.info(
-        f'Succesfully saved dataframe to s3 on {dest_path}. You can query the data on Athena using: select * from {TARGET_GLUE_DATABASE}.{table_name} limit 10;'
+        f'Successfully saved dataframe to s3 on {dest_path}. You can query the data on Athena using: select * from {TARGET_GLUE_DATABASE}.{table_name} limit 10;'
     )
 
 
@@ -318,7 +378,7 @@ def _save_to_local_as_parquet(dataframe, output_path, partition_cols,
     dataframe.to_parquet(output_path,
                          partition_cols=_normalize_name(partition_cols),
                          compression=compression)
-    logging.info('Parquet files saved succesfully.')
+    logging.info('Parquet files saved successfully.')
 
 
 # run test

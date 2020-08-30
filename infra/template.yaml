@@ -15,6 +15,14 @@ Parameters:
   S3ArtifactsBucketName:
     Type: String
     Description: Name of the artifacts bucket on S3
+  
+  Environment:
+    Type: String
+    Description: Define the environment to be deployed
+
+  CsvToParquetSnsTopicName:
+    Type: String
+    Description: Define the environment to be deployed
 
 
 # Define AWS Resources
@@ -53,6 +61,7 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
 
+
   # Define Glue Database
   GlueAnalyticsDatabase:
     Type: AWS::Glue::Database
@@ -75,7 +84,8 @@ Resources:
       Description: AWS Data Wrangler 1.6.0
       LayerName: aws-data-wrangler
       LicenseInfo: Apache 2.0
-  
+
+
   # Define Lambda Functions
   CsvToParquetFunction:
     Type: AWS::Serverless::Function
@@ -93,8 +103,8 @@ Resources:
           LOG_LEVEL: INFO
           TARGET_S3_BUCKET: !Ref S3AnalyticsBucketName
           TARGET_GLUE_DATABASE: !Ref GlueAnalyticsDatabase
-          ENV: cloud
-
+          SNS_TOPIC_NAME: !Ref CsvToParquetSnsTopicName
+          EXECUTION_MODE: cloud
 
   S3RawBucketEventNotificationFunction:
     Type: AWS::Serverless::Function
@@ -109,6 +119,7 @@ Resources:
         Variables:
           LOG_LEVEL: INFO
 
+
   # Define Lambda Invoke Permission
   RawCsvToParquetInvokePermission:
     Type: AWS::Lambda::Permission
@@ -118,7 +129,8 @@ Resources:
       Principal: s3.amazonaws.com
       SourceAccount: !Ref AWS::AccountId
       SourceArn: !Sub arn:aws:s3:::${S3RawBucketName}
-  
+
+
   # Define roles
   CsvToParquetRole:
     Type: AWS::IAM::Role
@@ -174,7 +186,11 @@ Resources:
                   - s3:ListBucket
                 Resource:
                   - !Sub arn:aws:s3:::${S3AnalyticsBucketName}
-
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref CsvToParquetSnsTopic
 
   BucketNotificationRole:
     Type: AWS::IAM::Role
@@ -206,6 +222,7 @@ Resources:
                   - logs:PutLogEvents
                 Resource: arn:aws:logs:*:*:*
 
+
   # Define Lambda Trigger
   RawCsvToParquetLambdaTrigger:
     Type: Custom::LambdaTrigger
@@ -214,3 +231,11 @@ Resources:
       ServiceToken: !GetAtt S3RawBucketEventNotificationFunction.Arn
       LambdaArn: !GetAtt CsvToParquetFunction.Arn
       Bucket: !Ref S3RawBucketName
+
+  
+  # Define SNS Topics
+  CsvToParquetSnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Aws CsvToParquet Lambda Function"
+      TopicName: !Ref CsvToParquetSnsTopicName
