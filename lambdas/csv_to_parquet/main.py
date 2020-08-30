@@ -15,6 +15,7 @@ from datetime import datetime
 from ast import literal_eval
 import awswrangler as wr
 
+# GLOBAL VARIABLES
 # gets environment variables
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 EXECUTION_MODE = os.getenv('EXECUTION_MODE',
@@ -24,8 +25,13 @@ TARGET_S3_BUCKET = os.getenv('TARGET_S3_BUCKET')
 TARGET_GLUE_DATABASE = os.getenv('TARGET_GLUE_DATABASE')
 SNS_TOPIC_NAME = os.getenv('SNS_TOPIC_NAME')
 
+# aws sns topic arn is set by application
 SNS_TOPIC_ARN = ''
-LOCAL_CSV_FILE_PATH = 'test-data\\weather\\weather.20160201.csv'
+
+# LOCAL_CSV_FILE_PATH used only for running the script locally
+LOCAL_CSV_FILE_PATH = os.path.join(
+    os.path.dirname(__file__),
+    '..\\..\\test-data\\weather\\weather.20160201.csv')
 
 
 # main function
@@ -46,6 +52,7 @@ def handler(event, context):
             df = cast_df_columns(dataframe=df,
                                  source_file_path=source_file_path,
                                  s3_object_meta=s3_object_meta)
+            df = str_columns_to_upper(df)
             df = add_etl_metadata_to_df(df, source_file_path=source_file_path)
             df = normalize_column_name(df)
             df = replace_nan_values(df)
@@ -229,7 +236,7 @@ def cast_df_columns(dataframe, source_file_path, s3_object_meta):
                             'float64')
                     elif data_type == 'string':
                         dataframe[column_name] = dataframe[column_name].astype(
-                            'string')
+                            str)
                     else:
                         logging.error(
                             f'Invalid data type {data_type} for column {column_name}.'
@@ -255,7 +262,27 @@ def cast_df_columns(dataframe, source_file_path, s3_object_meta):
     return dataframe
 
 
-# adds metadata regarding the load process to the dataframe.
+# Applies upper to string columns
+def str_columns_to_upper(dataframe):
+    logging.info('Applying upper to string columns.')
+    # excludes numerical columns
+    df_objects = dataframe.select_dtypes(include='object')
+    for column in df_objects.columns:
+        dataframe.loc[:, column] = _df_column_to_upper(df_objects[column])
+    return dataframe
+
+
+def _df_column_to_upper(df_column):
+    try:
+        df_column = df_column.str.upper()
+    except Exception:
+        # ignores pandas type object that is not string
+        pass
+
+    return df_column
+
+
+# adds metadata to the dataframe regarding the load process.
 def add_etl_metadata_to_df(dataframe, source_file_path):
     logging.info('Adding ETL metadata.')
     dataframe['dl_creation_date'] = datetime.today().date()
@@ -282,12 +309,11 @@ def normalize_column_name(dataframe):
 
 # Removes NaN values
 def replace_nan_values(dataframe):
-    if _is_cloud_execution_mode():
-        logging.info('Replacing NaN values to None.')
-        # excludes numerical columns
-        df_objects = dataframe.select_dtypes(include='object')
-        df_objects = df_objects.replace({np.nan: None})
-        dataframe[df_objects.columns] = df_objects
+    logging.info('Replacing NaN values to None.')
+    # excludes numerical columns
+    df_objects = dataframe.select_dtypes(include='object')
+    df_objects = df_objects.replace({np.nan: None})
+    dataframe[df_objects.columns] = df_objects
     return dataframe
 
 
@@ -398,7 +424,7 @@ if __name__ == '__main__':
         'partition_cols':
         'ObservationDate',
         'output_path':
-        'test-data/output',
+        os.path.join(os.path.dirname(__file__), '..\\..\\test-data\\output'),
         'dtypes': {
             'ForecastSiteCode': 'Int64',
             'ObservationTime': 'Int64',
