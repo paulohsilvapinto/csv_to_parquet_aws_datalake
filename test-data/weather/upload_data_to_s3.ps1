@@ -7,16 +7,10 @@ Param
 
 $ErrorActionPreference = "Stop"
 
-Set-Location $(Split-Path $MyInvocation.MyCommand.Path)
-Write-Output "`n`nLoading Weather data."
+$current_location = $(Split-Path $MyInvocation.MyCommand.Path)
+Set-Location $current_location
 
-$properties = ConvertFrom-StringData (Get-Content ../../infra/$environment.properties -Raw)
-$bucket = $properties.'S3RawBucketName'
+$parentFolderName = Split-Path (Split-Path $MyInvocation.MyCommand.Path -Parent) -Leaf
+../generic_upload_data_to_s3.ps1 $parentFolderName $environment
 
-$files = Get-ChildItem . -Filter *.csv | Select-Object -Expand FullName
-foreach($file in $files){
-    Write-Output "`nLoading file $file to $bucket."
-    aws s3 cp $file s3://$bucket/csv_to_analytics/weather/ --metadata file://metadata.json
-}
-
-Write-Output "`nWeather data was loaded successfully."
+Set-Location $current_location
