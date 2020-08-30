@@ -1,6 +1,7 @@
+.aws-sam/
 Scripts/
 Lib/
 Include/
 .vscode/
-*.cfg
 test-data/output/
+*.cfg
