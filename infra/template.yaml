@@ -95,7 +95,7 @@ Resources:
       Runtime: python3.6
       Layers:
         - !Ref WranglerLambdaLayer
-      Timeout: 180
+      Timeout: 900
       MemorySize: 512
       Role: !GetAtt CsvToParquetRole.Arn
       Environment:
