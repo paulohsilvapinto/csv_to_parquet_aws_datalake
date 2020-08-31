@@ -1,4 +1,0 @@
-{
-    "partition-cols": "[\"sale_date\", \"type\"]",
-    "custom-cast": "{\"street\":\"string\", \"city\":\"string\", \"zip\":\"string\", \"state\":\"string\", \"beds\":\"int\", \"baths\":\"int\", \"sq__ft\":\"int\",\"type\":\"string\", \"sale_date\":\"date\",\"price\":\"int\", \"latitude\":\"float\",\"longitude\":\"float\"}"
-}
