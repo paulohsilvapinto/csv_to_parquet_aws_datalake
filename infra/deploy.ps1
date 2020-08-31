@@ -31,6 +31,7 @@ sam build
 sam deploy `
     --s3-bucket $properties.'S3ArtifactsBucketName' `
     --stack-name $properties.'StackName' `
+    --region $properties.'AwsRegion' `
     --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND `
     --parameter-overrides $(Get-Content "$environment.properties")
 
