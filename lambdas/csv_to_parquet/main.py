@@ -31,7 +31,7 @@ SNS_TOPIC_ARN = ''
 # LOCAL_CSV_FILE_PATH used only for running the script locally
 LOCAL_CSV_FILE_PATH = os.path.join(
     os.path.dirname(__file__),
-    '..\\..\\test-data\\weather\\weather.20160201.csv')
+    '..\\..\\test-data\\weather\\incoming_data\\weather.20160201.csv')
 
 
 # main function
