@@ -1,14 +1,15 @@
 # DLG Python Test
 
-This is a python test project! For viewing the test documentation, please visit the [test evidences](https://github.com/paulohsilvapinto/phsp-dlg-python-test/tree/master/docs/test-evidences/TestEvidences.pdf).
+This is a python test project!  
+For viewing the test documentation, please visit the [test evidences](https://github.com/paulohsilvapinto/phsp-dlg-python-test/tree/master/docs/test-evidences/TestEvidences.pdf).
 
 ## Overview
 
-### Main Goal
+#### Main Goal
 
 Convert some weather*.csv files to parquet files, and answer some questions.
 
-### Proposed Solution
+#### Proposed Solution
 
 Use a **Cloud-based architecture**, with AWS, to store the CSV files, process, and finally store the outputted Parquet files in a new location. The processed files will be available to be queried as a table, using AWS Athena. The end-user will receive a message stating if the process was successful or not.
 
@@ -25,7 +26,7 @@ Use a **Cloud-based architecture**, with AWS, to store the CSV files, process, a
 
 ## Using this project
 
-### Requirements
+#### Requirements
 
 These are the requirements for this project:
 
@@ -35,28 +36,37 @@ These are the requirements for this project:
 * AWS IAM User with permission to access AWS via CLI.
 
 Install these programs and add them to the PATH, then run:
-> cd PATH\TO\THE\PROJECT
-> python -m pip install -r requirements.txt
 
-### How to deploy the project to AWS
+```bash
+cd PATH\TO\THE\PROJECT
+python -m pip install -r requirements.txt
+```
+
+#### How to deploy the project to AWS
 
 1. Meet the requirements specified on session above.
 2. Change the parameter values on \*.properties files, which are inside the *infra* directory. You **must** change at least every bucket name.
    ***Remember:*** *A S3 bucket name must be globally unique!*
 3. Run the commands below, specifying the *environment* you want to deploy. The *environment* value must be the name of a *.properties* file.  
-   > cd PATH\TO\THE\PROJECT
-   > .\infra\deploy.ps1 *environment*
+
+   ```bash
+   cd PATH\TO\THE\PROJECT
+   .\infra\deploy.ps1 *environment*
+   ```
 
    *Et Voilà!* Your AWS infrastructure was created!
 
-### Quick Start
+#### Quick Start
 
 **Before beginning**: if you want to receive the messages published to AWS SNS, do not forget to subscribe your e-mail to the SNS Topic.
 
 Open the *test-data* project directory. Each subdirectory represents a group of csv files that we can load into AWS. Let's name this subdirectory as *"Data description directory"*. Choose one of these subdirectories and get into it.
 Now, by running the commands below, every CSV file inside *incoming_data* directory is uploaded to Amazon S3 and later archived into the *archived_data* directory.
-> cd PATH\TO\THE\PROJECT\INTO\DATA_DESC_DIR
-> .\upload_data_to_s3.ps1 *environment*
+
+```bash
+cd PATH\TO\THE\PROJECT\INTO\DATA_DESC_DIR
+.\upload_data_to_s3.ps1 *environment*
+```
 
 **Note:** if you specify *dev* environment, then every single archived file is moved to the *incoming_data* directory, before the upload begins.
 
@@ -98,7 +108,7 @@ Just copy the "test-data" directory into your preferred location and rename it t
   * *upload_data_to_s3.ps1* script;
   * Optionally, one *metadata.json* file. **This is the only file you need to modify accordingly to your needs.**
 
-### Metadata Accepted Parameters
+#### Metadata Accepted Parameters
 
 The following parameters can be used. You can specify additional *key: value* pairs to be saved as object metadata on S3, but it will not be used by the process.
 **Important:** All values must be string.
@@ -119,4 +129,4 @@ The following parameters can be used. You can specify additional *key: value* pa
 
 ![Answer](/docs/images/answer.jpg)
 
-**Made with love! I hope you like it!**
+**Made with :heart:! I hope you like it!**
