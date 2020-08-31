@@ -220,15 +220,13 @@ def cast_df_columns(dataframe, source_file_path, s3_object_meta):
         if cast_schema:
             try:
                 cast_schema = literal_eval(cast_schema)
-            except Exception:
+            except Exception as err:
                 logging.error(
-                    f'Invalid custom-cast format for object {source_file_path}.'
+                    f'Invalid custom-cast format for object {source_file_path}. Dict-like string is expected.'
                 )
                 publish_error_to_sns(source_file_path,
-                                     '\n\nError:\nInvalid custom-cast format')
-                raise ValueError(
-                    f'Invalid custom-cast value for object {source_file_path}. Dict-like string is expected.'
-                )
+                                     '\n\nError:\nInvalid custom-cast format. Dict-like string is expected.')
+                raise err
 
             for column_name, data_type in cast_schema.items():
                 try:
