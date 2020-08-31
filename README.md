@@ -11,6 +11,7 @@ Convert some weather*.csv files to parquet files, and answer some questions.
 ### Proposed Solution
 
 Use a **Cloud-based architecture**, with AWS, to store the CSV files, process, and finally store the outputed Parquet files in a new location. The processed file will be available to be queried as a table, using AWS Athena. The end-user will receive a message stating if the process was succeeded or not.
+
 **Our goal is to make a generic process, so it can be independent of the inputted CSV file.**
 
 ## Architecture
@@ -96,5 +97,9 @@ Just copy the "test-data" directory into your preffered location and rename it t
   * *incoming_data* directory
   * *upload_data_to_s3.ps1* script
   * Optionally, the *metadata.json* file
+
+**By the way, the answer is:**
+
+![Answer](/docs/images/answer.jpg)
 
 **Made with love! I hope you like it!**
