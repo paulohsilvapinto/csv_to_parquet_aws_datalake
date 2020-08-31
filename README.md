@@ -1,6 +1,6 @@
 # DLG Python Test
 
-This is a python test project! For the complete documentation, please download the XXXXXXXXX.
+This is a python test project! For viewing the test documentation, please visit the [test evidences](https://github.com/paulohsilvapinto/phsp-dlg-python-test/tree/master/docs/test-evidences/TestEvidences.pdf).
 
 ## Overview
 
@@ -12,7 +12,7 @@ Convert some weather*.csv files to parquet files, and answer some questions.
 
 Use a **Cloud-based architecture**, with AWS, to store the CSV files, process, and finally store the outputted Parquet files in a new location. The processed files will be available to be queried as a table, using AWS Athena. The end-user will receive a message stating if the process was successful or not.
 
-**Our goal is to make a generic process, so it can be independent of the inputted CSV file.**
+**Our goal is to make a flexible, scalable and serverless process, so it can be independent of the inputted CSV file.**
 
 ## Architecture
 
@@ -68,7 +68,7 @@ Each file uploaded to Amazon S3 triggers a sequence of events:
    * Is applied uppercase to every string value. *Except on ETL metadata columns*;
    * Metadata columns with info about the ETL process are added to the output;
    * Column's names are normalized to lowercase and words are split by underscore;
-   * The output file is saved into an S3 Analytics Bucket as Parquet. The output file is compressed with Snappy compression and can be partitioned. *If the partition already exists, it is then overwritten*;
+   * The output file is saved into an S3 Analytics Bucket as Parquet. The output file is compressed, with Snappy compression by default, and can be partitioned. *If the partition already exists, it is overwritten by default.*;
    * A table is defined into *analytics_db* database, into AWS Glue Data Catalog, with the name tbl_*data_description_directory*. For instance, the following tree:  
 
         ```bash
@@ -83,7 +83,7 @@ Each file uploaded to Amazon S3 triggers a sequence of events:
 
 And the best part is: **the whole process takes seconds to conclude!**
 
-**Note:** You can change the default data types or specify a different partitioning schema by modifying the optional *metadata.json* file. Just be aware that this file is composed of key:value pairs and **every "value" must be a string!**
+**Note:** You can change the default data types or specify a different partitioning schema by modifying the optional *metadata.json* file. Just be aware that this file is composed of *key: value* pairs and **every "value" must be a string!**
 
 ## Working with your own data
 
@@ -100,7 +100,7 @@ Just copy the "test-data" directory into your preferred location and rename it t
 
 ### Metadata Accepted Parameters
 
-The following parameters can be used. You can specify additional key:value pairs to be saved as object metadata on S3, but it will not be used by the process.
+The following parameters can be used. You can specify additional *key: value* pairs to be saved as object metadata on S3, but it will not be used by the process.
 **Important:** All values must be string.
 
 * **partition-cols**: Defines the partitioning schema. Accepts column name or list of column names. *If not specified, the output will not be partitioned.*  
@@ -113,9 +113,9 @@ The following parameters can be used. You can specify additional key:value pairs
 * **output-compression**: Defines the compression of the outputted Parquet file. *Default: snappy*  
 * **output-mode**: Defines if the loaded data will be appended to the partition (*append*), or if the partition will be overwritten (*overwrite-partitions*), or if the whole data will be overwritten (*overwrite*). *Default: overwrite-partitions*
 
-## By the way, the answer for the questions is...
+## By the way, the answers for the questions are...
 
-*The highest registered temperature was 15.8 degrees, in HIGHLAND & EILEAN SIAR on 2016-03-17.*
+*The highest registered temperature was **15.8 degrees**, in **HIGHLAND & EILEAN SIAR** on **2016-03-17**.*
 
 ![Answer](/docs/images/answer.jpg)
 
