@@ -1,0 +1,4 @@
+{
+    "partition-cols": "date",
+    "custom-cast": "{\"area_name\":\"string\", \"area_code\":\"string\", \"date\":\"date\", \"new_cases\":\"int\", \"total_cases\":\"int\"}"
+}
