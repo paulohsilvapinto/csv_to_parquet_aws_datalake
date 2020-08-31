@@ -38,7 +38,7 @@ These are the requirements for this project:
 Install these programs and add them to the PATH, then run:
 
 ```bash
-cd PATH\TO\THE\PROJECT
+cd PATH\TO\THE\PROJECT\
 python -m pip install -r requirements.txt
 ```
 
@@ -50,8 +50,8 @@ python -m pip install -r requirements.txt
 3. Run the commands below, specifying the *environment* you want to deploy. The *environment* value must be the name of a *.properties* file.  
 
    ```bash
-   cd PATH\TO\THE\PROJECT
-   .\infra\deploy.ps1 *environment*
+   cd PATH\TO\THE\PROJECT\
+   .\infra\deploy.ps1 ENVIRONMENT
    ```
 
    *Et Voilà!* Your AWS infrastructure was created!
@@ -60,12 +60,20 @@ python -m pip install -r requirements.txt
 
 **Before beginning**: if you want to receive the messages published to AWS SNS, do not forget to subscribe your e-mail to the SNS Topic.
 
-Open the *test-data* project directory. Each subdirectory represents a group of csv files that we can load into AWS. Let's name this subdirectory as *"Data description directory"*. Choose one of these subdirectories and get into it.
+Open the *test-data* project directory. Each subdirectory represents a group of csv files that we can load into AWS. Let's name these subdirectories as *"Data description directory"*. Choose one of those and get into it.
 Now, by running the commands below, every CSV file inside *incoming_data* directory is uploaded to Amazon S3 and later archived into the *archived_data* directory.
 
 ```bash
-cd PATH\TO\THE\PROJECT\INTO\DATA_DESC_DIR
-.\upload_data_to_s3.ps1 *environment*
+cd PATH\TO\THE\PROJECT\test-data\DATA_DESC_DIR\
+.\upload_data_to_s3.ps1 ENVIRONMENT
+```
+
+For example, to upload the weather data into dev environment, you need to run:
+
+```bash
+cd PATH\TO\THE\PROJECT\
+cd .\test-data\weather\
+.\upload_data_to_s3.ps1 dev
 ```
 
 **Note:** if you specify *dev* environment, then every single archived file is moved to the *incoming_data* directory, before the upload begins.
@@ -99,7 +107,7 @@ And the best part is: **the whole process takes seconds to conclude!**
 
 Now that you know how the project works, it is easy to use your own data!
 
-Just copy the "test-data" directory into your preferred location and rename it to whatever best suits your needs. Now clean the directory:
+Just copy the *test-data* directory into your preferred location and rename it to whatever best suits your needs. Now clean the directory:
 
 * You must keep the *generic_upload_data_to_s3.ps1* script;
 * For each dataset, you will need a *Data description directory* with:
