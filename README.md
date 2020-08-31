@@ -98,6 +98,21 @@ Just copy the "test-data" directory into your preferred location and rename it t
   * *upload_data_to_s3.ps1* script;
   * Optionally, one *metadata.json* file. **This is the only file you need to modify accordingly to your needs.**
 
+### Metadata Accepted Parameters
+
+The following parameters can be used. You can specify additional key:value pairs to be saved as object metadata on S3, but it will not be used by the process.
+**Important:** All values must be string.
+
+* **partition-cols**: Defines the partitioning schema. Accepts column name or list of column names. *If not specified, the output will not be partitioned.*  
+* **custom-cast**: Dictionary of *column_name:data_type* (which can be either string, float, date, datetime or int). You do not need to specify every column. *Columns not specified will have its data types inferred.*  
+* **separator**: Defines the delimiter of the csv file. *Default: ,*  
+* **decimal-char**: Defines the character used for decimal punctuation. *Default: .*  
+* **file-encoding**: Defines the encoding of the csv file. *Default: utf-8*
+
+* **output-str-upper**: Defines whether or not upper case is applied to the string columns. *Default: true*  
+* **output-compression**: Defines the compression of the outputted Parquet file. *Default: snappy*  
+* **output-mode**: Defines if the loaded data will be appended to the partition (*append*), or if the partition will be overwritten (*overwrite-partitions*), or if the whole data will be overwritten (*overwrite*). *Default: overwrite-partitions*
+
 ## By the way, the answer for the questions is...
 
 *The highest registered temperature was 15.8 degrees, in HIGHLAND & EILEAN SIAR on 2016-03-17.*

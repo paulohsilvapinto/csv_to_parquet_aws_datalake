@@ -47,19 +47,22 @@ def handler(event, context):
         partition_cols = get_partition_cols(source_file_path=source_file_path,
                                             s3_object_meta=s3_object_meta)
 
-        df = read_csv(source_file_path=source_file_path, event=event)
+        df = read_csv(source_file_path=source_file_path,
+                      event=event,
+                      s3_object_meta=s3_object_meta)
         if not df.empty:
             df = cast_df_columns(dataframe=df,
                                  source_file_path=source_file_path,
                                  s3_object_meta=s3_object_meta)
-            df = str_columns_to_upper(df)
+            df = str_columns_to_upper(df, s3_object_meta)
             df = add_etl_metadata_to_df(df, source_file_path=source_file_path)
             df = normalize_column_name(df)
             df = replace_nan_values(df)
             save_as_parquet(dataframe=df,
                             s3_object=s3_object,
                             partition_cols=partition_cols,
-                            event=event)
+                            event=event,
+                            s3_object_meta=s3_object_meta)
             publish_success_to_sns(s3_object)
             logging.info(
                 f'#--- Finished loading file {source_file_path}. ---#')
@@ -121,6 +124,7 @@ def get_source_file_path(s3_object):
 
 # gets custom metadata of a single s3 object from s3
 def get_s3_object_metadata(s3_object):
+    metadata = {}
     if _is_cloud_execution_mode():
         logging.info('Retrieving object metadata.')
         s3 = boto3.client('s3')
@@ -129,7 +133,7 @@ def get_s3_object_metadata(s3_object):
         metadata = response.get('Metadata')
         logging.info('Metadata: {}'.format(metadata))
 
-        return metadata
+    return metadata
 
 
 # parses s3 object metadata to identify if table must be partitioned
@@ -167,17 +171,23 @@ def get_partition_cols(source_file_path, s3_object_meta):
 
 
 # reads csv file from s3 or from local computer
-def read_csv(source_file_path, event):
+def read_csv(source_file_path, event, s3_object_meta):
     if _is_cloud_execution_mode():
-        return _read_csv_cloud(source_file_path)
+        return _read_csv_cloud(source_file_path, s3_object_meta)
     elif _is_local_execution_mode():
         return _read_csv_local(event)
 
 
-def _read_csv_cloud(s3_source_path):
+def _read_csv_cloud(s3_source_path, s3_object_meta):
     logging.info('Extracting csv file from s3.')
+    separator = s3_object_meta.get('separator', ',')
+    decimal_char = s3_object_meta.get('decimal-char', '.')
+    encoding = s3_object_meta.get('file-encoding', 'utf-8')
     try:
-        df = pd.read_csv(s3_source_path)
+        df = pd.read_csv(s3_source_path,
+                         sep=separator,
+                         decimal=decimal_char,
+                         encoding=encoding)
     except Exception as err:
         logging.error(f'Failed to read csv {s3_source_path} on S3.')
         publish_error_to_sns(s3_source_path, f'\n\nError:\n{err}')
@@ -263,12 +273,14 @@ def cast_df_columns(dataframe, source_file_path, s3_object_meta):
 
 
 # Applies upper to string columns
-def str_columns_to_upper(dataframe):
-    logging.info('Applying upper to string columns.')
-    # excludes numerical columns
-    df_objects = dataframe.select_dtypes(include='object')
-    for column in df_objects.columns:
-        dataframe.loc[:, column] = _df_column_to_upper(df_objects[column])
+def str_columns_to_upper(dataframe, s3_object_meta):
+    output_str_upper = s3_object_meta.get('output-str-upper', 'true').lower()
+    if output_str_upper == 'true':
+        logging.info('Applying upper to string columns.')
+        # excludes numerical columns
+        df_objects = dataframe.select_dtypes(include='object')
+        for column in df_objects.columns:
+            dataframe.loc[:, column] = _df_column_to_upper(df_objects[column])
     return dataframe
 
 
@@ -359,6 +371,7 @@ def _publish_to_sns(topic_arn, subject, message):
 
 def save_as_parquet(dataframe,
                     s3_object,
+                    s3_object_meta,
                     partition_cols,
                     event,
                     compression='snappy'):
@@ -367,7 +380,8 @@ def save_as_parquet(dataframe,
                                table_name=s3_object['target_table'],
                                partition_cols=partition_cols,
                                compression=compression,
-                               source_file_path=s3_object['object_path'])
+                               source_file_path=s3_object['object_path'],
+                               s3_object_meta=s3_object_meta)
     elif _is_local_execution_mode():
         _save_to_local_as_parquet(dataframe=dataframe,
                                   output_path=event.get('output_path'),
@@ -377,16 +391,20 @@ def save_as_parquet(dataframe,
 
 # saves dataframe to s3, creates glue table if not exists and updates glue table's partitions
 def _save_to_s3_as_parquet(dataframe, table_name, partition_cols, compression,
-                           source_file_path):
+                           source_file_path, s3_object_meta):
     logging.info('Saving dataframe to s3.')
+
     dest_path = f's3://{TARGET_S3_BUCKET}/databases/{TARGET_GLUE_DATABASE}/{table_name}/'
+    compression = s3_object_meta.get('output-compression', compression)
+    output_mode = s3_object_meta.get('output-mode', 'overwrite_partitions')
+
     try:
         wr.s3.to_parquet(df=dataframe,
                          path=dest_path,
                          compression=compression,
                          dataset=True,
                          partition_cols=partition_cols,
-                         mode='overwrite_partitions',
+                         mode=output_mode,
                          database=TARGET_GLUE_DATABASE,
                          table=table_name)
     except Exception as err:
