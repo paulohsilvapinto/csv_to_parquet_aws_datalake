@@ -10,7 +10,7 @@ Convert some weather*.csv files to parquet files, and answer some questions.
 
 ### Proposed Solution
 
-Use a **Cloud-based architecture**, with AWS, to store the CSV files, process, and finally store the outputed Parquet files in a new location. The processed file will be available to be queried as a table, using AWS Athena. The end-user will receive a message stating if the process was succeeded or not.
+Use a **Cloud-based architecture**, with AWS, to store the CSV files, process, and finally store the outputted Parquet files in a new location. The processed files will be available to be queried as a table, using AWS Athena. The end-user will receive a message stating if the process was successful or not.
 
 **Our goal is to make a generic process, so it can be independent of the inputted CSV file.**
 
@@ -41,20 +41,20 @@ Install these programs and add them to the PATH, then run:
 ### How to deploy the project to AWS
 
 1. Meet the requirements specified on session above.
-2. Change the parameter values for *.properties files that are inside the infra directory. You **must** change at least every bucket name.  
-   *Remember: A S3 bucket name must be globally unique!*
-3. Run the commands below, specifying the environment you want to deploy. The environment value must be the name of a .properties file.  
+2. Change the parameter values on \*.properties files, which are inside the *infra* directory. You **must** change at least every bucket name.
+   ***Remember:*** *A S3 bucket name must be globally unique!*
+3. Run the commands below, specifying the *environment* you want to deploy. The *environment* value must be the name of a *.properties* file.  
    > cd PATH\TO\THE\PROJECT
    > .\infra\deploy.ps1 *environment*
 
-*Et Voilà!* Your AWS infrastructure was created!
+   *Et Voilà!* Your AWS infrastructure was created!
 
 ### Quick Start
 
-*Before beginning*: if you want to receive the messages published to AWS SNS, do not forget to subscribe your e-mail to the SNS Topic.
+**Before beginning**: if you want to receive the messages published to AWS SNS, do not forget to subscribe your e-mail to the SNS Topic.
 
-Open the "test-data" project directory. Each subdirectory represents a group of csv files that we can load into AWS. Let's name this subdirectory as "Data description directory". Choose one of these subdirectories and get into it.
-Now, by running the commands below, every CSV file inside "incoming_data" directory is uploaded to Amazon S3 and later archived into the "archived_data" directory.
+Open the *test-data* project directory. Each subdirectory represents a group of csv files that we can load into AWS. Let's name this subdirectory as *"Data description directory"*. Choose one of these subdirectories and get into it.
+Now, by running the commands below, every CSV file inside *incoming_data* directory is uploaded to Amazon S3 and later archived into the *archived_data* directory.
 > cd PATH\TO\THE\PROJECT\INTO\DATA_DESC_DIR
 > .\upload_data_to_s3.ps1 *environment*
 
@@ -69,7 +69,7 @@ Each file uploaded to Amazon S3 triggers a sequence of events:
    * Metadata columns with info about the ETL process are added to the output;
    * Column's names are normalized to lowercase and words are split by underscore;
    * The output file is saved into an S3 Analytics Bucket as Parquet. The output file is compressed with Snappy compression and can be partitioned. *If the partition already exists, it is then overwritten*;
-   * A table is defined into *analytics_db* database into AWS Glue Data Catalog with the name tbl_*data_description_directory*. For instance, the following tree:  
+   * A table is defined into *analytics_db* database, into AWS Glue Data Catalog, with the name tbl_*data_description_directory*. For instance, the following tree:  
 
         ```bash
         data_title_example
@@ -83,22 +83,24 @@ Each file uploaded to Amazon S3 triggers a sequence of events:
 
 And the best part is: **the whole process takes seconds to conclude!**
 
-**Note:** You can change the default data types or specify a different partitioning schema by modifying the *metadata.json* file. Just be aware that this file is composed of key:value pairs and **every value must be a string!**
+**Note:** You can change the default data types or specify a different partitioning schema by modifying the optional *metadata.json* file. Just be aware that this file is composed of key:value pairs and **every "value" must be a string!**
 
 ## Working with your own data
 
 Now that you know how the project works, it is easy to use your own data!
 
-Just copy the "test-data" directory into your preffered location and rename it to whatever best suits your needs. Now clean the directory:
+Just copy the "test-data" directory into your preferred location and rename it to whatever best suits your needs. Now clean the directory:
 
 * You must keep the *generic_upload_data_to_s3.ps1* script;
 * For each dataset, you will need a *Data description directory* with:
-  * *archived_data* directory
-  * *incoming_data* directory
-  * *upload_data_to_s3.ps1* script
-  * Optionally, the *metadata.json* file
+  * *archived_data* directory;
+  * *incoming_data* directory;
+  * *upload_data_to_s3.ps1* script;
+  * Optionally, one *metadata.json* file. **This is the only file you need to modify accordingly to your needs.**
 
-**By the way, the answer is:**
+## By the way, the answer for the questions is...
+
+*The highest registered temperature was 15.8 degrees, in HIGHLAND & EILEAN SIAR on 2016-03-17.*
 
 ![Answer](/docs/images/answer.jpg)
 
