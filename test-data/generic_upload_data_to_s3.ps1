@@ -28,8 +28,8 @@ $properties = ConvertFrom-StringData (Get-Content ../infra/$environment.properti
 $bucket = $properties.'S3RawBucketName'
 
 $files = Get-ChildItem ./$data_folder/incoming_data -Filter *.csv | Select-Object -Expand FullName
-if ([System.IO.File]::Exists("./$data_folder/metadata.json")){
-    Write-Output "`nMetadata file was founded."
+if (Test-Path -Path ./$data_folder/metadata.json){
+    Write-Output "`nMetadata file was found."
     foreach($file in $files){
         Write-Output "`nLoading file $file to $bucket."
         aws s3 cp $file s3://$bucket/csv_to_analytics/$data_folder/ --metadata file://$data_folder/metadata.json
@@ -37,7 +37,7 @@ if ([System.IO.File]::Exists("./$data_folder/metadata.json")){
 } 
 else 
 {
-    Write-Output "`nMetadata file was not founded. Proceeding without metadata."
+    Write-Output "`nMetadata file was not found. Proceeding without metadata."
     foreach($file in $files){
         Write-Output "`nLoading file $file to $bucket."
         aws s3 cp $file s3://$bucket/csv_to_analytics/$data_folder/
