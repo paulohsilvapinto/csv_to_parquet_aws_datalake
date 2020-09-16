@@ -6,7 +6,7 @@ For viewing the test documentation, please visit the [test evidences](https://gi
 
 #### Main Goal
 
-Convert some weather*.csv files to parquet files, and answer some questions.
+Convert some weather*.csv files to parquet files.
 
 #### Proposed Solution
 
