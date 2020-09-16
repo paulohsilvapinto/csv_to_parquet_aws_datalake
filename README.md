@@ -1,6 +1,5 @@
-# DLG Python Test
+# CSV to Parquet - AWS Datalake
 
-This is a python test project!  
 For viewing the test documentation, please visit the [test evidences](https://github.com/paulohsilvapinto/phsp-dlg-python-test/tree/master/docs/test-evidences/TestEvidences.pdf).
 
 ## Overview
@@ -130,11 +129,5 @@ The following parameters can be used. You can specify additional *key: value* pa
 * **output-str-upper**: Defines whether or not upper case is applied to the string columns. *Default: true*  
 * **output-compression**: Defines the compression of the outputted Parquet file. *Default: snappy*  
 * **output-mode**: Defines if the loaded data will be appended to the partition (*append*), or if the partition will be overwritten (*overwrite-partitions*), or if the whole data will be overwritten (*overwrite*). *Default: overwrite-partitions*
-
-## By the way, the answers for the questions are...
-
-*The highest registered temperature was **15.8 degrees**, in **HIGHLAND & EILEAN SIAR** on **2016-03-17**.*
-
-![Answer](/docs/images/answer.jpg)
 
 **Made with :heart:! I hope you like it!**
